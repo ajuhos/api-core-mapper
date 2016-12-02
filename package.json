@@ -1,0 +1,14 @@
+{
+  "name": "api-core-mapper",
+  "version": "0.4.5",
+  "description": "Generate swagger documentation for your api-core API.",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "We Are Break <ajuhos@we-are-break.com>",
+  "license": "MIT",
+  "dependencies": {
+    "api-core": "^0.4.5"
+  }
+}
