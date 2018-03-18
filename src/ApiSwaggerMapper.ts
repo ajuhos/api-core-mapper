@@ -1,7 +1,8 @@
 import {
     Api, ApiEdgeDefinition, ApiEdgeMethod, ApiEdgeRelation, ApiEdgeMethodScope,
-    OneToOneRelation
+    OneToOneRelation, ApiEdgeSchema
 } from "api-core";
+const URL = require('url');
 
 export class ApiSwaggerMapper {
 
@@ -18,42 +19,53 @@ export class ApiSwaggerMapper {
                                     tag: string,
                                     name: string,
                                     description: string,
-                                    parameterName: string) {
-        if(parameterName) {
-            target[name] = {
-                summary: description,
-                description,
-                tags: [ tag ],
-                parameters: [
-                    {
-                        name: parameterName,
-                        "in": "path",
-                        required: true
-                    }
-                ],
-                responses: {
-                    "200": {
-                        description: "The requested entry"
-                    }
-                }
-            };
+                                    parameterName: string,
+                                    referenceName: string,
+                                    { name: edgeName, pluralName }: ApiEdgeDefinition) {
+        const parameters = [];
 
-            if(name == "get") {
-                target[name].responses["404"] = {
-                    description: "Not Found"
+        if(parameterName) {
+            parameters.push({
+                name: parameterName,
+                "in": "path",
+                required: true,
+                type: 'string' //TODO: Handle id type
+            })
+        }
+
+        if(referenceName) {
+            parameters.push({
+                "in": "body",
+                name: "body",
+                description: `The input ${edgeName} object`,
+                required: true,
+                schema: {
+                    "$ref": `#/definitions/${referenceName}`
+                }
+            })
+        }
+
+        target[name] = {
+            summary: description,
+            description,
+            tags: [ tag ],
+            parameters,
+            consumes: [
+                "application/json"
+            ],
+            produces: [
+                "application/json"
+            ],
+            responses: {
+                "200": {
+                    description: `The requested ${edgeName}`
                 }
             }
-        }
-        else {
-            target[name] = {
-                summary: description,
-                description,
-                tags: [ tag ],
-                responses: {
-                    "200": {
-                        description: "The requested entry"
-                    }
-                }
+        };
+
+        if(name == "get") {
+            target[name].responses["404"] = {
+                description: "Not Found"
             }
         }
 
@@ -69,44 +81,49 @@ export class ApiSwaggerMapper {
     private static providePath(target: any,
                                tag: string,
                                path: string,
-                               operations: { name: string, description: string, parameter: string }[]) {
+                               operations: { name: string, description: string, parameter: string, ref?: string }[],
+                               edge: ApiEdgeDefinition) {
         target[path] = {};
-        operations.forEach((operation: { name: string, description: string, parameter: string }) =>
+        operations.forEach(operation =>
             ApiSwaggerMapper.provideOperation(target[path], path, tag,
-                operation.name, operation.description, operation.parameter))
+                operation.name, operation.description, operation.parameter, operation.ref || '', edge))
     }
 
-    private static generateAllOperations(idParam: string = "") {
+    private static generateAllOperations({ name, pluralName }: ApiEdgeDefinition, idParam: string = "") {
         const extra = idParam ? " by id" : "";
         let output = [
-            { name: "get", description: idParam ? "Get a single entry" : "Get a list of entries", parameter: idParam },
-            { name: "put", description: "Replace an existing entry" + extra, parameter: idParam },
-            { name: "patch", description: "Modify an existing entry" + extra, parameter: idParam },
-            { name: "delete", description: "Delete an existing entry" + extra, parameter: idParam },
+            { name: "get", description: idParam ? (`Get a single ${name}` + extra) : `Get a list of ${pluralName}`, parameter: idParam },
+            { name: "put", description: `Replace an existing ${name}` + extra, parameter: idParam, ref: name },
+            { name: "patch", description: `Modify an existing ${name}` + extra, parameter: idParam, ref: name }, //TODO: Better typing for body
+            { name: "delete", description: `Delete an existing ${name}` + extra, parameter: idParam },
         ];
         if(!idParam) {
-            output.push({ name: "post", description: "Create a new entry", parameter: idParam });
+            output.push({ name: "post", description: `Create a new ${name}`, parameter: idParam, ref: name });
         }
         return output
     }
 
-    private static generateGetOperation(idParam: string = "") {
+    private static generateGetOperation({ name, pluralName }: ApiEdgeDefinition, idParam: string = "") {
         return [
-            { name: "get", description: idParam ? "Get a single entry" : "Get a list of entries", parameter: idParam }
+            {
+                name: "get",
+                description: idParam ? `Get a single ${name}` : `Get a list of ${pluralName}`,
+                parameter: idParam
+            }
         ]
     }
 
     private provideRoutesSingular = (target: any, tag: string, edge: ApiEdgeDefinition, prefix = "", level = 1) => {
         if(level > this.levelLimit) return [];
 
-        ApiSwaggerMapper.providePath(target, tag, `${prefix}`, ApiSwaggerMapper.generateAllOperations());
+        ApiSwaggerMapper.providePath(target, tag, `${prefix}`, ApiSwaggerMapper.generateAllOperations(edge), edge);
 
         edge.methods.forEach(
             (method: ApiEdgeMethod) => {
                 if(method.scope == ApiEdgeMethodScope.Entry || method.scope == ApiEdgeMethodScope.Collection) {
                     //TODO: Handle acceptedTypes
                     ApiSwaggerMapper.providePath(target, tag, `${prefix}/${method.name}`,
-                        ApiSwaggerMapper.generateGetOperation())
+                        ApiSwaggerMapper.generateGetOperation(edge), edge)
                 }
             });
 
@@ -133,22 +150,22 @@ export class ApiSwaggerMapper {
     private provideRoutes = (target: any, tag: string, edge: ApiEdgeDefinition, prefix = "", level = 1) => {
         if(level > this.levelLimit) return [];
 
-        ApiSwaggerMapper.providePath(target, tag, `${prefix}`, ApiSwaggerMapper.generateAllOperations());
+        ApiSwaggerMapper.providePath(target, tag, `${prefix}`, ApiSwaggerMapper.generateAllOperations(edge), edge);
         ApiSwaggerMapper.providePath(target, tag,
-            `${prefix}/{${edge.idField}}`, ApiSwaggerMapper.generateAllOperations(edge.idField));
+            `${prefix}/{${edge.idField}}`, ApiSwaggerMapper.generateAllOperations(edge, edge.idField), edge);
 
         edge.methods.forEach(
             (method: ApiEdgeMethod) => {
                 if(method.scope == ApiEdgeMethodScope.Collection || method.scope == ApiEdgeMethodScope.Edge) {
                     //TODO: Handle acceptedTypes
                     ApiSwaggerMapper.providePath(target, tag, `${prefix}/${method.name}`,
-                        ApiSwaggerMapper.generateGetOperation())
+                        ApiSwaggerMapper.generateGetOperation(edge), edge)
                 }
 
                 if(method.scope == ApiEdgeMethodScope.Entry || method.scope == ApiEdgeMethodScope.Edge) {
                     //TODO: Handle acceptedTypes
                     ApiSwaggerMapper.providePath(target, tag, `${prefix}/{${edge.idField}}/${method.name}`,
-                        ApiSwaggerMapper.generateGetOperation(edge.idField))
+                        ApiSwaggerMapper.generateGetOperation(edge, edge.idField), edge)
                 }
             });
 
@@ -186,15 +203,76 @@ export class ApiSwaggerMapper {
         return output
     };
 
-    private mapDefinitions = () => {
-        return {}
+    private mapSchemaFieldType(type: any): any {
+        switch(type) {
+            case Number:
+                return 'number';
+            case String:
+                return 'string';
+            case Boolean:
+                return 'boolean';
+            default:
+                if(Array.isArray(type)) {
+                    //TODO
+                    throw new Error("Array mapping is not yet supported")
+                }
+                else if(type && typeof type == "object") {
+                    return this.mapObjectField(type)
+                }
+        }
+    }
+
+    private mapSchemaField(field: any) {
+        if(Array.isArray(field)) {
+            //TODO
+            throw new Error("Array mapping is not yet supported")
+        }
+        else if(typeof field == "object") {
+            return {
+                type: this.mapSchemaFieldType(field.type)
+            }
+        }
+        else {
+            return {
+                type: this.mapSchemaFieldType(field)
+            }
+        }
+    }
+
+    private mapObjectField(field: any) {
+        const keys = Object.keys(field);
+
+        const properties: { [key: string]: any } = {};
+        keys.forEach(key => properties[key] = this.mapSchemaField(field[key]));
+
+        return {
+            type: 'object',
+            required: keys.filter(key => field[key].required),
+            properties
+        }
+    }
+
+    private mapSchema(target: any, name: string, { originalSchema }: ApiEdgeSchema) {
+        target[name] = this.mapObjectField(originalSchema)
+    }
+
+    private mapSchemas = () => {
+        let output: any = {};
+        this.api.edges
+            .filter(e => e.schema)
+            .forEach(({ name, schema }: ApiEdgeDefinition) => this.mapSchema(output, name, schema));
+        return output
     };
 
-    map = () => {
-        return {
+    mapV2 = () => {
+        const info = this.api.info || {
+            title: "API",
+        };
+
+        const api: { [key: string]: any } = {
             swagger: "2.0",
             info: {
-                title: "API",
+                ...info,
                 version: this.api.version
             },
             consumes: [
@@ -204,8 +282,42 @@ export class ApiSwaggerMapper {
                 "application/json"
             ],
             paths: this.mapEdges(),
-            definitions: this.mapDefinitions()
+            definitions: this.mapSchemas()
+        };
+
+        if(this.api.url) {
+            const parsedURL = URL.parse(this.api.url);
+            api.host = parsedURL.host;
+            api.basePath = parsedURL.pathname
         }
+
+        return api
+    };
+
+    mapV3 = () => {
+        const info = this.api.info || {
+            title: "API",
+        };
+
+        const api: { [key: string]: any } = {
+            openapi: "3.0",
+            info: {
+                ...info,
+                version: this.api.version
+            },
+            paths: this.mapEdges(),
+            components: {
+                schemas: this.mapSchemas()
+            }
+        };
+
+        if(this.api.url) {
+            api.servers = [
+                { url: this.api.url }
+            ]
+        }
+
+        return api
     }
 
 }

@@ -11,12 +11,21 @@ export class ApiSwaggerProvider {
         this.apis = apis
     }
 
-    map = () => {
+    mapV2 = () => {
         return this.apis.map((api: Api) => {
             const mapper = new ApiSwaggerMapper(api);
             mapper.levelLimit = this.levelLimit;
             mapper.extendedTags = this.extendedTags;
-            return mapper.map()
+            return mapper.mapV2()
+        })
+    };
+
+    mapV3 = () => {
+        return this.apis.map((api: Api) => {
+            const mapper = new ApiSwaggerMapper(api);
+            mapper.levelLimit = this.levelLimit;
+            mapper.extendedTags = this.extendedTags;
+            return mapper.mapV3()
         })
     }
 
