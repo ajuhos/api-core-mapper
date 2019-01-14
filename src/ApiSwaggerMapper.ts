@@ -1,6 +1,6 @@
 import {
     Api, ApiEdgeDefinition, ApiEdgeMethod, ApiEdgeRelation, ApiEdgeMethodScope,
-    OneToOneRelation, ApiEdgeSchema
+    OneToOneRelation, ApiEdgeSchema, Mixed, SubSchema, SchemaReference, JSONDate
 } from "api-core";
 const URL = require('url');
 
@@ -209,12 +209,17 @@ export class ApiSwaggerMapper {
                 return 'number';
             case String:
                 return 'string';
+            case JSONDate:
+            case SchemaReference:
+                return { type: 'string' };
             case Boolean:
                 return 'boolean';
+            case Mixed:
+            case Object:
+                return 'object';
             default:
                 if(Array.isArray(type)) {
-                    //TODO
-                    throw new Error("Array mapping is not yet supported")
+                    return this.mapArrayField(type)
                 }
                 else if(type && typeof type == "object") {
                     return this.mapObjectField(type)
@@ -224,12 +229,24 @@ export class ApiSwaggerMapper {
 
     private mapSchemaField(field: any) {
         if(Array.isArray(field)) {
-            //TODO
-            throw new Error("Array mapping is not yet supported")
+            return this.mapSchemaFieldType(field)
         }
         else if(typeof field == "object") {
-            return {
-                type: this.mapSchemaFieldType(field.type)
+            if(field.type) {
+                if(typeof field.type === "object") {
+                    return this.mapSchemaFieldType(field.type)
+                }
+                else {
+                    return {
+                        type: this.mapSchemaFieldType(field.type)
+                    }
+                }
+            }
+            else if(field instanceof SubSchema) {
+                return this.mapObjectField(field.original)
+            }
+            else {
+                return this.mapSchemaFieldType(field)
             }
         }
         else {
@@ -249,6 +266,13 @@ export class ApiSwaggerMapper {
             type: 'object',
             required: keys.filter(key => field[key].required),
             properties
+        }
+    }
+
+    private mapArrayField(field: any[]) {
+        return {
+            type: 'array',
+            items: this.mapSchemaField(field[0])
         }
     }
 
