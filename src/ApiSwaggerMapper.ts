@@ -128,7 +128,7 @@ export class ApiSwaggerMapper {
             });
 
         edge.relations
-            .filter((relation: ApiEdgeRelation) => relation.from == edge)
+            .filter((relation: ApiEdgeRelation) => relation.from == edge && !relation.external)
             .forEach((relation: ApiEdgeRelation) => {
                 if(relation instanceof OneToOneRelation) {
                     this.provideRoutesSingular(target,
@@ -170,7 +170,7 @@ export class ApiSwaggerMapper {
             });
 
         edge.relations
-            .filter((relation: ApiEdgeRelation) => relation.from == edge)
+            .filter((relation: ApiEdgeRelation) => relation.from == edge && !relation.external)
             .forEach((relation: ApiEdgeRelation) => {
                 if(relation instanceof OneToOneRelation) {
                     this.provideRoutesSingular(target,
@@ -199,7 +199,9 @@ export class ApiSwaggerMapper {
 
     private mapEdges = () => {
         let output: any = {};
-        this.api.edges.forEach((edge: ApiEdgeDefinition) => this.mapEdge(output, edge));
+        this.api.edges
+            .filter(edge => !edge.external)
+            .forEach((edge: ApiEdgeDefinition) => this.mapEdge(output, edge));
         return output
     };
 
