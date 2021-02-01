@@ -1,6 +1,6 @@
 {
   "name": "api-core-mapper",
-  "version": "0.27.0",
+  "version": "3.0.0",
   "description": "Generate swagger documentation for your api-core API.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/ajuhos/api-core#readme",
   "dependencies": {
-    "api-core": "0.27.0"
+    "api-core": "3.0.0"
   },
   "devDependencies": {
     "@types/node": "^10.12.18"

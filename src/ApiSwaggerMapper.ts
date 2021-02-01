@@ -299,7 +299,7 @@ export class ApiSwaggerMapper {
             swagger: "2.0",
             info: {
                 ...info,
-                version: this.api.version
+                version: this.api.service.version
             },
             consumes: [
                 "application/json"
@@ -329,7 +329,7 @@ export class ApiSwaggerMapper {
             openapi: "3.0",
             info: {
                 ...info,
-                version: this.api.version
+                version: this.api.service.version
             },
             paths: this.mapEdges(),
             components: {

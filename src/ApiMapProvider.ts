@@ -15,7 +15,7 @@ export class ApiMapProvider {
             const mapper = new ApiMapper(api);
             mapper.levelLimit = this.levelLimit;
             return {
-                version: api.version,
+                version: api.service.version,
                 routes: mapper.map()
             }
         })
