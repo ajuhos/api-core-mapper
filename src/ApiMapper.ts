@@ -1,6 +1,6 @@
 import {
     Api, ApiEdgeDefinition, ApiEdgeMethod, ApiEdgeRelation, ApiEdgeMethodScope,
-    OneToOneRelation, OneToManyRelation
+    OneToOneRelation
 } from "api-core";
 
 export class ApiMapper {

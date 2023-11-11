@@ -1,4 +1,5 @@
 import {Api} from "api-core";
+import {SecurityProvider} from "./SecurityProvider";
 import {ApiSwaggerMapper} from "./ApiSwaggerMapper";
 
 export class ApiSwaggerProvider {
@@ -12,21 +13,22 @@ export class ApiSwaggerProvider {
     }
 
     mapV2 = () => {
-        return this.apis.map((api: Api) => {
+        return Promise.all(this.apis.map((api: Api) => {
             const mapper = new ApiSwaggerMapper(api);
             mapper.levelLimit = this.levelLimit;
             mapper.extendedTags = this.extendedTags;
             return mapper.mapV2()
-        })
+        }))
     };
 
-    mapV3 = () => {
-        return this.apis.map((api: Api) => {
-            const mapper = new ApiSwaggerMapper(api);
+    mapV3 = (securityProvider?: SecurityProvider) => {
+        return Promise.all(this.apis.map((api: Api) => {
+            const mapper = new ApiSwaggerMapper(api, securityProvider);
             mapper.levelLimit = this.levelLimit;
             mapper.extendedTags = this.extendedTags;
             return mapper.mapV3()
-        })
+        }))
     }
 
 }
+
